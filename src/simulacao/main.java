@@ -1,5 +1,9 @@
 package simulacao;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Random;
 import java.util.Scanner;
 
@@ -35,7 +39,7 @@ public class main {
     * Utilizacao ou Ocupacao = fracao de tempo que o caixa permanecera ocupado.
     * Little: E[N] = \lambda * E[w]
     */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         //semente constante
         rand.setSeed(2017108013);
         
@@ -73,9 +77,11 @@ public class main {
         Info ewSaida = new Info();
         
         //arquivo com valores a serem utilizados para plot de gráficos.
-//        FILE *dados_grafico;
-//        dados_grafico = fopen("dados_grafico.csv", "w");
-//        fprintf(dados_grafico, "Tempo,Lambda,En,Ew\n");
+        File file = new File("dados_grafico.csv");
+        FileWriter write = new FileWriter(file);
+        PrintWriter print = new PrintWriter(write);
+        print.println("Tempo,Lambda,En,Ew");
+
         double intervaloGraficos = 600.0;
         
         //logica da simulacao
@@ -161,7 +167,7 @@ public class main {
                     soma_atendimentos_parcial -= (saida_atendimento - tempo);
                 double ocupacaoParcial = soma_atendimentos_parcial / tempo * 100;
                 double lambdaParcial = ewEntrada.numeroEventos / tempo;
-//                fprintf(dados_grafico, "%lF,%.3lF,%lF,%lF\n", tempo, lambdaParcial, enParcial, ewParcial);
+                print.println(tempo + "," + lambdaParcial + "," + enParcial + "," + ewParcial);
             }
         }
         //remover tempo de ocupacao computado apos o termino do tempo de simulacao.
@@ -176,7 +182,8 @@ public class main {
         double ew = (ewEntrada.somaAreas - ewSaida.somaAreas) / (double) ewEntrada.numeroEventos;
         double lambda = ewEntrada.numeroEventos / tempo;
 
-//        fclose(dados_grafico);
+        print.close();
+        write.close();
 
         System.out.println("Ocupacao: " + (soma_atendimentos / tempo * 100) + " %\n");
         System.out.println("E[N]: " + enF + "\n");
@@ -186,5 +193,4 @@ public class main {
         System.out.println("Lambda: "+ lambda + "\n");
         System.out.printf("Validação Little: %2.20f %n \n", (enF - lambda * ew));
     }
-    
 }
