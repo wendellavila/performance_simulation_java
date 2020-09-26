@@ -1,13 +1,19 @@
+/*
+Autor: Wendell Joao Castro de Avila
+RA: 2017.1.08.013
+*/
+
 package simulacao;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.PriorityQueue;
 import java.util.Random;
 import java.util.Scanner;
 
-public class main {
+public class Main {
     
     public static Random rand = new Random();
     
@@ -20,13 +26,14 @@ public class main {
     }
 
     public static double minimo(double n1, double n2){
-        if (n1 < n2)
+        if(n1 < n2)
             return n1;
         return n2;
     }
-    
+
+    //funcao usada para encontrar os tempos de parada para gerar as informacoes parciais
     public static double proximoMultiploDeN(double valorAtual, double n){
-    //remover decimais
+        //remover decimais
         n = Math.floor(n);
         return valorAtual - (valorAtual % n) + n;
     }
@@ -45,17 +52,19 @@ public class main {
         
         Scanner sc = new Scanner(System.in);
 
-        System.out.println("Informe o tempo medio entre a chegada de clientes (segundos): ");
-        double tempo_medio_clientes = 1.0 / Double.parseDouble(sc.nextLine());
-
-        System.out.println("Informe o tempo medio gasto para atender cada cliente (segundos): ");
-        double tempo_medio_atendimento = 1.0 / Double.parseDouble(sc.nextLine());
-
         System.out.println("Informe a quantidade de caixas: ");
         int qtd_caixas = Integer.parseInt(sc.nextLine());
+        
+        System.out.println("Informe a relação entre a chegada e a capacidade total de atendimento: ");
+        double relacao = Double.parseDouble(sc.nextLine());
 
         System.out.println("Informe o tempo total de simulacao (segundos): ");
         double tempo_simulacao = Double.parseDouble(sc.nextLine());
+        
+        // 1 / 1 minuto
+        double tempo_medio_atendimento = 1.0 / 60.0;
+        // 1 / (1 minuto * quantidade de caixas * relacao)
+        double tempo_medio_clientes = 1.0 / ((double) qtd_caixas  * relacao * 60.0);
         
         //tempo decorrido da simulacao
         double tempo = 0.0;
@@ -63,20 +72,20 @@ public class main {
         //armazena o tempo de chegada do proximo cliente
         double chegada_cliente = (-1.0 / tempo_medio_clientes) * Math.log(aleatorio());
 
-        //armazena o tempo em que o cliente que estiver em atendimento saira do comercio
-        //saida_atendimento == 0.0 indica caixa ocioso
-        double saida_atendimento = 0.0;
+        //fila ordenada que armazena os tempos em que os clientes
+        //que estiverem em atendimento sairao do comercio
+        //apos atender um cliente, seu tempo de saida e removido da fila
+        //a quantidade de itens em saida_atendimento_caixas
+        //diz a quantidade de caixas ocupados, que nao pode exceder qtd_caixas
+        PriorityQueue<Double> saida_atendimento_caixas = new PriorityQueue<>();
 
         double fila = 0.0;
-
-        //somar os tempos de atendimento, para no final calcularmos a ocupacao.
-        double soma_atendimentos = 0.0;
         
         Info en = new Info();
         Info ewEntrada = new Info();
         Info ewSaida = new Info();
         
-        //arquivo com valores a serem utilizados para plot de gráficos.
+        //arquivo com valores parciais a serem utilizados para plot de gráficos.
         File file = new File("dados_grafico.csv");
         FileWriter write = new FileWriter(file);
         PrintWriter print = new PrintWriter(write);
@@ -86,28 +95,33 @@ public class main {
         
         //logica da simulacao
         while(tempo <= tempo_simulacao){
-            //nao existe cliente sendo atendido no momento atual,
-            //de modo que a simulacao pode avancar no tempo para
+            
+            double proxima_saida_atendimento = 0.0;
+            //System.out.println("===================================");
+            //System.out.println("Tempo: " + tempo);
+            
+            //todos os caixas estao ociosos
+            //a simulacao pode avancar no tempo para
             //a chegada do proximo cliente
-            //modulo do tempo (double) por 100 deve ser "igual" a 0
-
-            if(saida_atendimento == 0.0){
+            if(saida_atendimento_caixas.size() == 0){
                 tempo = minimo(chegada_cliente, proximoMultiploDeN(tempo, intervaloGraficos));
             }
+            //existem caixas ocupados
             else {
-                tempo = minimo(minimo(chegada_cliente, saida_atendimento), proximoMultiploDeN(tempo, intervaloGraficos));
+                proxima_saida_atendimento = saida_atendimento_caixas.peek();
+                tempo = minimo(minimo(chegada_cliente, proxima_saida_atendimento), proximoMultiploDeN(tempo, intervaloGraficos));
             }
 
             if(tempo == chegada_cliente){
-                //printf("Chegada de cliente: %lF\n", chegada_cliente);
                 //evento de chegada de cliente
                 fila++;
-                //printf("fila: %lF\n", fila);
-                //indica que o caixa esta ocioso
-                //logo, pode-se comecar a atender
-                //o cliente que acaba de chegar
-                if(saida_atendimento == 0.0){
-                    saida_atendimento = tempo;
+                //System.out.println("Chegada de cliente: " + chegada_cliente + ", fila: " + fila);
+
+                //se existir caixa ocioso, pode-se comecar a
+                //atender o cliente que acaba de chegar
+                if(saida_atendimento_caixas.size() < qtd_caixas){
+                    proxima_saida_atendimento = tempo;
+                    saida_atendimento_caixas.add(proxima_saida_atendimento);
                 }
 
                 //gerar o tempo de chegada do proximo cliente
@@ -123,7 +137,7 @@ public class main {
                 ewEntrada.tempoAnterior = tempo;
                 ewEntrada.numeroEventos++;
             }
-            else if(tempo == saida_atendimento){
+            else if(tempo == proxima_saida_atendimento){
                 //evento executado se houver saida de cliente
                 //ou ainda se houver chegada de cliente, mas
                 //o caixa estiver ocioso.
@@ -133,13 +147,15 @@ public class main {
 
                 //verifica se ha cliente na fila
                 if(fila > 0.0){
+                    //atendimento de cliente
                     fila--;
-
                     double tempo_atendimento = (-1.0 / tempo_medio_atendimento) * Math.log(aleatorio());
-                    saida_atendimento = tempo + tempo_atendimento;
-                    soma_atendimentos += tempo_atendimento;
+                    proxima_saida_atendimento = tempo + tempo_atendimento;
+                    saida_atendimento_caixas.add(proxima_saida_atendimento);
+                    //System.out.println("Saida de atendimento: " + proxima_saida_atendimento + ", fila: " + fila);
                 } else {
-                    saida_atendimento = 0.0;
+                    //chegada de cliente com caixa ocioso
+                    saida_atendimento_caixas.remove();
                 }
 
                 if(en.tempoAnterior < tempo){
@@ -155,24 +171,16 @@ public class main {
                 }
             }
             else {
-                //printar informacoes parciais em um arquivo txt
+                //printar informacoes parciais em um arquivo csv
                 double enParcial = en.somaAreas / tempo;
                 //fazendo o calculo da ultima area dos graficos antes do momento atual
                 double ewSaidaParcial = ewSaida.somaAreas + ewSaida.numeroEventos * (tempo - ewSaida.tempoAnterior);
                 double ewEntradaParcial = ewEntrada.somaAreas + ewEntrada.numeroEventos * (tempo - ewEntrada.tempoAnterior);
                 double ewParcial = (ewEntradaParcial - ewSaidaParcial) / (double) ewEntrada.numeroEventos;
-                //remover tempo de ocupacao computado apos o momento atual
-                double soma_atendimentos_parcial = soma_atendimentos;
-                if (saida_atendimento > tempo)
-                    soma_atendimentos_parcial -= (saida_atendimento - tempo);
-                double ocupacaoParcial = soma_atendimentos_parcial / tempo * 100;
                 double lambdaParcial = ewEntrada.numeroEventos / tempo;
                 print.println(tempo + "," + lambdaParcial + "," + enParcial + "," + ewParcial);
             }
         }
-        //remover tempo de ocupacao computado apos o termino do tempo de simulacao.
-        if (saida_atendimento > tempo)
-            soma_atendimentos -= (saida_atendimento - tempo);
 
         //fazendo o calculo da ultima area dos graficos antes do termino da simulacao
         ewSaida.somaAreas += ewSaida.numeroEventos * (tempo - ewSaida.tempoAnterior);
@@ -185,7 +193,6 @@ public class main {
         print.close();
         write.close();
 
-        System.out.println("Ocupacao: " + (soma_atendimentos / tempo * 100) + " %\n");
         System.out.println("E[N]: " + enF + "\n");
         System.out.println("E[W]: " + ew + "\n");
         //Little --> en = lambda * ew
