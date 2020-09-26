@@ -96,6 +96,9 @@ public class Main {
         //logica da simulacao
         while(tempo <= tempo_simulacao){
             
+            System.out.println("size" + saida_atendimento_caixas.size());
+            
+            //guarda a saida de atendimento futura mais proxima do tempo atual 
             double proxima_saida_atendimento = 0.0;
             //System.out.println("===================================");
             //System.out.println("Tempo: " + tempo);
@@ -149,8 +152,12 @@ public class Main {
                 if(fila > 0.0){
                     //atendimento de cliente
                     fila--;
+                    
                     double tempo_atendimento = (-1.0 / tempo_medio_atendimento) * Math.log(aleatorio());
                     proxima_saida_atendimento = tempo + tempo_atendimento;
+                    //para atualizar o valor de saida_atendimento
+                    //remove-se o valor atual da fila e adiciona-se o novo valor
+                    saida_atendimento_caixas.remove();
                     saida_atendimento_caixas.add(proxima_saida_atendimento);
                     //System.out.println("Saida de atendimento: " + proxima_saida_atendimento + ", fila: " + fila);
                 } else {
